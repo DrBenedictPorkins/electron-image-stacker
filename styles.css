@@ -1,0 +1,269 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: 20px;
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
+  color: #ffffff;
+  font-family: 'Arial', sans-serif;
+  box-sizing: border-box;
+}
+
+#controls {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#presetWidth, button {
+  font-size: 16px;
+  padding: 10px 15px;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  outline: none;
+  margin-right: 10px;
+}
+
+#presetWidth:focus, button:focus {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+button {
+  cursor: pointer;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+button:hover {
+  background-color: #ff8c00;
+  box-shadow: 0 0 8px rgba(255, 140, 0, 0.8);
+}
+
+#drop_zone {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  border: 2px dashed #ffffff;
+  padding: 10px;
+  text-align: center;
+  background: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+  z-index: 1000;
+  border-top: 3px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Add hover effect to make it more interactive */
+#drop_zone:hover {
+  background: linear-gradient(to right, #7a21db 0%, #3585fc 100%);
+  border-top: 3px solid rgba(255, 255, 255, 0.5);
+}
+
+#image_stack {
+  margin: 20px auto;
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 15px;
+  width: 90%;
+  max-width: none; /* Remove the visual display width limit */
+  min-height: 400px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.2);
+  box-sizing: border-box;
+  /* Add bottom padding to ensure last image is fully visible */
+  margin-bottom: 140px; /* Increased to ensure good spacing from drop zone and control panel */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Optional: Add a fade effect at the bottom of the page */
+body::after {
+  content: '';
+  position: fixed;
+  bottom: 120px; /* Adjusted to be above control panel */
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, rgba(106, 17, 203, 0.2));
+  pointer-events: none;
+}
+
+img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 8px;
+  margin-top: 8px;
+  border-radius: 4px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+img:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+img.separator-image {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  margin: 4px 0;
+  border-radius: 2px;
+  transform-origin: center;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 100%;
+  height: 25px; /* Fixed height for separators */
+}
+
+.selected::after {
+  content: '';
+  position: absolute;
+  top: -2px; /* Slightly expand the area to fit the shadow without moving the image */
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  box-shadow: 0 0 8px 4px #FFA500; /* Bright orange glow */
+  border-radius: 5px; /* Rounded corners for the shadow to match the image */
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  #image_stack {
+    width: 95%; /* Allow the stack to take more space on smaller screens */
+    padding: 5px; /* Adjust padding to save space */
+  }
+
+  #drop_zone {
+    width: 100%; /* Ensure the drop zone spans the entire width for better usability */
+    height: 50px; /* Maintain consistent height */
+    padding: 10px; /* Maintain padding for aesthetic consistency */
+  }
+
+  #presetWidth, button {
+    padding: 8px 12px; /* Slightly reduce padding for smaller screens */
+    font-size: 14px; /* Adjust font size for better readability on smaller devices */
+  }
+
+  #exportButton {
+    padding: 8px 12px; /* Adjust padding for a more compact layout */
+  }
+}
+
+
+#controlPanel {
+  position: fixed;
+  bottom: 70px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+  z-index: 1000;
+  flex-wrap: wrap; /* Allow controls to wrap on smaller screens */
+}
+
+.controlGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#controlPanel button {
+  padding: 5px 15px;
+  background-color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #6a11cb;
+  transition: all 0.2s ease;
+}
+
+#controlPanel #exportButton {
+  background-color: #4CAF50;
+  color: white;
+}
+
+#controlPanel button:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-1px);
+}
+
+#controlPanel #exportButton:hover {
+  background-color: #45a049;
+}
+
+#controlPanel button:disabled,
+#controlPanel button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #cccccc;
+  transform: none;
+}
+
+#controlPanel button:disabled:hover,
+#controlPanel button.disabled:hover {
+  background-color: #cccccc;
+  transform: none;
+}
+
+#controlPanel #resetButton {
+  background-color: #dc3545;
+  color: white;
+}
+
+#controlPanel #resetButton:hover {
+  background-color: #c82333;
+}
+
+.controlGroup button + button {
+  margin-left: 10px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.checkbox-container label {
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.checkbox-container input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}

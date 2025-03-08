@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Stacker App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="controlPanel">
+    <div class="controlGroup">
+        <label for="presetWidth">Width (px):</label>
+        <input type="number" id="presetWidth" value="500" min="100" max="4096">
+        <button onclick="applyWidth()">Apply</button>
+    </div>
+    <div class="controlGroup">
+        <button id="exportButton" onclick="exportImagesAsFile()" disabled>Export as Image</button>
+        <button id="resetButton" onclick="resetAll()" class="danger">Reset All</button>
+        <div class="checkbox-container">
+            <input type="checkbox" id="useSeparator" checked>
+            <label for="useSeparator">Separator image</label>
+        </div>
+    </div>
+</div>
+
+<div id="drop_zone">Drop images here</div>
+<div id="image_stack"></div>
+<script src="renderer.js"></script>
+</body>
+</html>
