@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Stacker App</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Critical fix for scrolling - should not interfere with any functionality */
+        html, body {
+            overflow-y: auto !important;
+            height: auto !important;
+            min-height: 100% !important;
+        }
+    </style>
 </head>
 <body>
 <div id="controlPanel">

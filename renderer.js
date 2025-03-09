@@ -130,7 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to update separators based on checkbox state
     // forceRecreate: if true, will recreate all separators even if they already exist
-    function updateSeparators(forceRecreate = false) {
+    // dontScroll: if true, will not automatically scroll after updating separators
+    function updateSeparators(forceRecreate = false, dontScroll = false) {
         const useSeparators = useSeparatorCheckbox.checked;
         const images = Array.from(imageStack.querySelectorAll('img:not(.separator-image)'));
         
@@ -164,7 +165,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        scrollToBottom();
+        // Only scroll to bottom if not prevented (e.g., during width changes)
+        if (!dontScroll) {
+            scrollToBottom();
+        }
     }
 
     // Add event listener to the checkbox
@@ -221,22 +225,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // These functions are now handled inline for better control of the initial state
 
     function scrollToBottom() {
-        // More reliable way to scroll to the bottom
-        window.scrollTo({
-            top: document.body.scrollHeight + 1000, // Add extra to ensure we get to the bottom
-            behavior: 'smooth' // Smooth scrolling
-        });
-        
-        // As a backup, try another method after a small delay
+        // Delay the scroll slightly to ensure DOM updates are complete
         setTimeout(() => {
-            const imageStack = document.getElementById('image_stack');
-            if (imageStack) {
-                const lastImage = imageStack.lastElementChild;
-                if (lastImage) {
-                    lastImage.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }
-            }
-        }, 100);
+            // Scroll to the bottom with smooth animation
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 50);
     }
 
     function selectImage(img) {
@@ -290,6 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxWidth = 4096;
         width = Math.min(Math.max(width, minWidth), maxWidth);
         
+        // Save current scroll position before changing width
+        const scrollPos = window.scrollY;
+        
         // Update displayed width value
         widthDisplay.textContent = width;
         
@@ -313,7 +312,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // Force recreation of the separator images with the new width
-        updateSeparators(true); // true flag to force recreation
+        // Use the dontScroll parameter to prevent scrolling
+        updateSeparators(true, true); // true for force recreation, true for dontScroll
+        
+        // Restore original scroll position
+        window.scrollTo({
+            top: scrollPos,
+            behavior: 'auto' // Use 'auto' to avoid smooth scrolling conflicts
+        });
         
         // Remove transition after width change completes
         if (!instant) {
@@ -324,9 +330,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Add event listener for the slider with debouncing for smoother experience
-    widthSlider.addEventListener('input', () => {
+    widthSlider.addEventListener('input', (event) => {
         // Update display immediately for responsiveness
         widthDisplay.textContent = widthSlider.value;
+        
+        // Prevent scrolling while dragging slider
+        event.preventDefault();
         
         // Debounce the actual resizing for better performance
         if (resizeTimeout) {
@@ -338,6 +347,45 @@ document.addEventListener('DOMContentLoaded', () => {
             resizeTimeout = null;
         }, 10); // Small delay for smoother performance
     });
+    
+    // Prevent scrolling when using the slider
+    widthSlider.addEventListener('mousedown', (event) => {
+        // Stop propagation to prevent other handlers from triggering
+        event.stopPropagation();
+        
+        // Temporarily disable page scrolling while slider is being dragged
+        document.body.style.overflow = 'hidden';
+        
+        // Save current scroll position
+        const scrollPos = window.scrollY;
+        
+        // Add mouseup listener to restore scrolling when done
+        const enableScrolling = () => {
+            // Restore body overflow
+            document.body.style.overflow = '';
+            
+            // Restore original scroll position after a short delay
+            setTimeout(() => {
+                window.scrollTo({
+                    top: scrollPos,
+                    behavior: 'auto'
+                });
+            }, 50);
+            
+            // Remove listeners
+            document.removeEventListener('mouseup', enableScrolling);
+            document.removeEventListener('mouseleave', enableScrolling);
+        };
+        
+        document.addEventListener('mouseup', enableScrolling);
+        document.addEventListener('mouseleave', enableScrolling);
+    });
+    
+    // Additional handlers to prevent scroll issues with the slider
+    widthSlider.addEventListener('wheel', (event) => {
+        // Prevent wheel scrolling when over slider
+        event.preventDefault();
+    }, { passive: false });
     
     // For external access (needed for resetAll function)
     window.updateWidth = updateWidth;
