@@ -1,10 +1,10 @@
 {
-  "name": "ElectronFiddle",
-  "productName": "ElectronFiddle",
-  "description": "My Electron application description",
-  "keywords": [],
+  "name": "electron-image-stacker",
+  "productName": "Image Stacker",
+  "description": "Stack images vertically with optional SpongeBob-style separators",
+  "keywords": ["electron", "image", "stacker", "utility"],
   "main": "./main.js",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "makram",
   "scripts": {
     "start": "electron ."
