@@ -221,7 +221,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // These functions are now handled inline for better control of the initial state
 
     function scrollToBottom() {
-        window.scrollTo(0, document.body.scrollHeight);
+        // More reliable way to scroll to the bottom
+        window.scrollTo({
+            top: document.body.scrollHeight + 1000, // Add extra to ensure we get to the bottom
+            behavior: 'smooth' // Smooth scrolling
+        });
+        
+        // As a backup, try another method after a small delay
+        setTimeout(() => {
+            const imageStack = document.getElementById('image_stack');
+            if (imageStack) {
+                const lastImage = imageStack.lastElementChild;
+                if (lastImage) {
+                    lastImage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }
+        }, 100);
     }
 
     function selectImage(img) {
