@@ -169,6 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dontScroll) {
             scrollToBottom();
         }
+        
+        // Show the total height toast notification again when separators change
+        showTotalHeight();
     }
 
     // Add event listener to the checkbox
@@ -231,6 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // Add to DOM
                     imageStack.appendChild(resizedImg);
+                    
+                    // Calculate and show total height of all images so far
+                    showTotalHeight();
                     
                     // Display the image stack container if this is the first image
                     if (imageStack.style.display === 'none') {
@@ -352,6 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 imageStack.style.transition = 'none';
             }, 200);
         }
+        
+        // Show the total height toast notification when width changes
+        showTotalHeight();
     }
     
     // Add event listener for the slider with debouncing for smoother experience
@@ -367,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(resizeTimeout);
         }
         
+        // Also debounce the toast notification to prevent it from appearing constantly during slider drag
         resizeTimeout = setTimeout(() => {
             updateWidth(parseInt(widthSlider.value, 10));
             resizeTimeout = null;
@@ -431,6 +441,39 @@ function updateExportButtonVisibility() {
         exportButton.setAttribute('disabled', 'true');
         exportButton.classList.add('disabled');
     }
+}
+
+// Calculate and display the total height of stacked images
+function showTotalHeight() {
+    // Calculate total height of all images in the stack
+    let totalHeight = 0;
+    const allStackElements = document.querySelectorAll('#image_stack img');
+    const specifiedWidth = parseInt(document.getElementById('widthSlider').value, 10);
+    
+    allStackElements.forEach(img => {
+        if (img.classList.contains('separator-image')) {
+            totalHeight += 25; // Fixed height for separators
+        } else {
+            // For regular images, calculate height based on aspect ratio and width
+            if (img.naturalWidth && img.naturalHeight) {
+                const aspectRatio = img.naturalWidth / img.naturalHeight;
+                totalHeight += Math.round(specifiedWidth / aspectRatio);
+            } else {
+                // If naturalWidth/Height not available, use offsetHeight
+                totalHeight += img.offsetHeight;
+            }
+        }
+    });
+    
+    // Show the toast notification with the total height
+    const sizeToast = document.getElementById('size-toast');
+    sizeToast.textContent = `${totalHeight}px`;
+    sizeToast.classList.add('visible');
+    
+    // Hide the toast after 2 seconds
+    setTimeout(() => {
+        sizeToast.classList.remove('visible');
+    }, 2000);
 }
 
 function exportImagesAsFile() {
