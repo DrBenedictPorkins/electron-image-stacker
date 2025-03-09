@@ -18,7 +18,7 @@ A lightweight desktop application for stacking multiple images vertically with S
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/electron-image-stacker.git
+git clone https://github.com/DrBenedictPorkins/electron-image-stacker.git
 
 # Navigate to the project directory
 cd electron-image-stacker
