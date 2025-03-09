@@ -132,46 +132,113 @@ document.addEventListener('DOMContentLoaded', () => {
     // forceRecreate: if true, will recreate all separators even if they already exist
     // dontScroll: if true, will not automatically scroll after updating separators
     function updateSeparators(forceRecreate = false, dontScroll = false) {
+        console.log("---- SEPARATOR UPDATE TRIGGERED ----");
+        
+        // Save starting height for animation
+        const startingHeight = calculateCurrentHeight();
+        console.log(`Starting height: ${startingHeight}px`);
+        previousHeight = startingHeight;
+        
+        // Get and clear all existing information
         const useSeparators = useSeparatorCheckbox.checked;
         const images = Array.from(imageStack.querySelectorAll('img:not(.separator-image)'));
         
-        // First remove existing separators
-        separatorImages.forEach(sep => {
-            if (sep.parentNode === imageStack) {
-                imageStack.removeChild(sep);
-            }
+        console.log(`Separator checkbox is: ${useSeparators ? 'CHECKED' : 'UNCHECKED'}`);
+        console.log(`Found ${images.length} regular images`);
+        
+        // Remove ALL existing separators completely (important!)
+        const existingSeparators = imageStack.querySelectorAll('.separator-image');
+        console.log(`Removing ${existingSeparators.length} existing separators`);
+        
+        existingSeparators.forEach(sep => {
+            imageStack.removeChild(sep);
         });
+        
+        // Reset the separators array completely
         separatorImages = [];
         
-        // Skip if we don't need separators or have less than 2 images
-        if (!useSeparators || images.length < 2) {
-            return;
-        }
-        
-        // Get current width for separators - always use the exact current width
-        const currentWidth = firstImageWidth || parseInt(widthSlider.value, 10) || defaultWidth;
-        
-        // Add separators between images
-        for (let i = 0; i < images.length - 1; i++) {
-            // Always generate a fresh separator at the current width
-            const separator = createLiveSeparator(currentWidth);
-            separatorImages.push(separator);
+        // Only add new separators if checkbox is checked AND we have at least 2 images
+        if (useSeparators && images.length >= 2) {
+            console.log(`Adding ${images.length - 1} new separators`);
             
-            // Insert after the current image
-            if (images[i].nextSibling) {
-                imageStack.insertBefore(separator, images[i].nextSibling);
-            } else {
-                imageStack.appendChild(separator);
+            // Get current width for separators
+            const currentWidth = firstImageWidth || parseInt(widthSlider.value, 10) || defaultWidth;
+            
+            // Reorder images to make sure we have them in DOM order
+            images.sort((a, b) => {
+                const allNodes = Array.from(imageStack.children);
+                return allNodes.indexOf(a) - allNodes.indexOf(b);
+            });
+            
+            // Add separators between images
+            for (let i = 0; i < images.length - 1; i++) {
+                // Create a fresh separator
+                const separator = createLiveSeparator(currentWidth);
+                separatorImages.push(separator);
+                
+                // Insert after the current image
+                if (images[i].nextSibling) {
+                    imageStack.insertBefore(separator, images[i].nextSibling);
+                } else {
+                    imageStack.appendChild(separator);
+                }
             }
+        } else {
+            console.log("Not adding any separators");
         }
         
-        // Only scroll to bottom if not prevented (e.g., during width changes)
+        // Scroll down if needed
         if (!dontScroll) {
             scrollToBottom();
         }
         
-        // Show the total height toast notification again when separators change
-        showTotalHeight();
+        // Calculate final height after all DOM changes are finished
+        requestAnimationFrame(() => {
+            const finalHeight = calculateCurrentHeight();
+            console.log(`Final height after changes: ${finalHeight}px`);
+            
+            // Display with the proper animation
+            displayToast(`Height: ${finalHeight}px`);
+        });
+    }
+    
+    // Helper function to calculate current height directly
+    function calculateCurrentHeight() {
+        const images = Array.from(imageStack.querySelectorAll('img:not(.separator-image)'));
+        const separators = Array.from(imageStack.querySelectorAll('.separator-image'));
+        const specifiedWidth = parseInt(widthSlider.value, 10);
+        
+        console.log(`calculateCurrentHeight: Using width ${specifiedWidth}px for calculations`);
+        
+        let height = 0;
+        let imageHeights = [];
+        
+        // Calculate regular image heights
+        images.forEach((img, index) => {
+            if (img.naturalWidth && img.naturalHeight) {
+                const aspectRatio = img.naturalWidth / img.naturalHeight;
+                const imgHeight = Math.round(specifiedWidth / aspectRatio);
+                imageHeights.push({index, type: 'image', originalSize: `${img.naturalWidth}x${img.naturalHeight}`, calculatedHeight: imgHeight});
+                height += imgHeight;
+            } else {
+                const imgHeight = img.offsetHeight || 100;
+                imageHeights.push({index, type: 'image', note: 'dimensions not available', calculatedHeight: imgHeight});
+                height += imgHeight;
+            }
+        });
+        
+        // Add separator heights (fixed 25px each)
+        const separatorHeight = separators.length * 25;
+        height += separatorHeight;
+        
+        if (separators.length > 0) {
+            imageHeights.push({type: 'separators', count: separators.length, totalHeight: separatorHeight});
+        }
+        
+        console.log('Height calculation details:', imageHeights);
+        console.log(`Total calculated height: ${height}px with width ${specifiedWidth}px`);
+        
+        return height;
     }
 
     // Add event listener to the checkbox
@@ -235,8 +302,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Add to DOM
                     imageStack.appendChild(resizedImg);
                     
-                    // Calculate and show total height of all images so far
-                    showTotalHeight();
+                    // Calculate height directly after image is added
+                    requestAnimationFrame(() => {
+                        const finalHeight = calculateCurrentHeight();
+                        console.log(`New image added, height: ${finalHeight}px`);
+                        displayToast(`Height: ${finalHeight}px`);
+                    });
                     
                     // Display the image stack container if this is the first image
                     if (imageStack.style.display === 'none') {
@@ -317,8 +388,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxWidth = 4096;
         width = Math.min(Math.max(width, minWidth), maxWidth);
         
+        console.log(`Width changing to: ${width}px`);
+        
         // Save current scroll position before changing width
         const scrollPos = window.scrollY;
+        
+        // First get the current height for animation purposes
+        const startingHeight = calculateCurrentHeight();
+        previousHeight = startingHeight; // Save for animation
+        console.log(`Width change - starting height: ${startingHeight}px`);
         
         // Update displayed width value
         widthDisplay.textContent = width;
@@ -359,8 +437,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 200);
         }
         
-        // Show the total height toast notification when width changes
-        showTotalHeight();
+        // Show updated height after all DOM changes complete
+        // Use requestAnimationFrame for better timing and more accurate results
+        requestAnimationFrame(() => {
+            // Recalculate with the new width
+            const finalHeight = calculateCurrentHeight();
+            console.log(`Width change to ${width}px - final height: ${finalHeight}px`);
+            
+            // Animate the height change
+            if (finalHeight !== startingHeight) {
+                animateHeightChange(startingHeight, finalHeight, document.getElementById('size-toast'));
+            }
+        });
     }
     
     // Add event listener for the slider with debouncing for smoother experience
@@ -376,12 +464,48 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(resizeTimeout);
         }
         
-        // Also debounce the toast notification to prevent it from appearing constantly during slider drag
+        // Update height display while dragging, with minimal performance impact
+        if (!animationInProgress) {
+            // Show a temporary preview of what the height will be
+            const previewHeight = calculateHeightForWidth(parseInt(widthSlider.value, 10));
+            const sizeToast = document.getElementById('size-toast');
+            sizeToast.textContent = `Height: ~${previewHeight}px`;
+            sizeToast.style.opacity = '0.7'; // Indicate this is a preview
+        }
+        
+        // Debounce the actual resizing and final height calculation
         resizeTimeout = setTimeout(() => {
+            // Do the actual resize operation
             updateWidth(parseInt(widthSlider.value, 10));
+            
+            // Reset opacity after we get the real value
+            document.getElementById('size-toast').style.opacity = '1';
+            
             resizeTimeout = null;
-        }, 10); // Small delay for smoother performance
+        }, 50); // Small delay for smoother performance
     });
+    
+    // Helper function to quickly calculate height for preview without DOM updates
+    function calculateHeightForWidth(width) {
+        const images = Array.from(imageStack.querySelectorAll('img:not(.separator-image)'));
+        const separators = Array.from(imageStack.querySelectorAll('.separator-image'));
+        let height = 0;
+        
+        // Calculate image heights based on aspect ratios
+        images.forEach(img => {
+            if (img.naturalWidth && img.naturalHeight) {
+                const aspectRatio = img.naturalWidth / img.naturalHeight;
+                height += Math.round(width / aspectRatio);
+            } else {
+                height += img.offsetHeight || 100;
+            }
+        });
+        
+        // Add separator heights
+        height += separators.length * 25;
+        
+        return height;
+    }
     
     // Prevent scrolling when using the slider
     widthSlider.addEventListener('mousedown', (event) => {
@@ -443,37 +567,114 @@ function updateExportButtonVisibility() {
     }
 }
 
-// Calculate and display the total height of stacked images
+// Calculate and display the total height of stacked images - completely revised
 function showTotalHeight() {
-    // Calculate total height of all images in the stack
-    let totalHeight = 0;
-    const allStackElements = document.querySelectorAll('#image_stack img');
-    const specifiedWidth = parseInt(document.getElementById('widthSlider').value, 10);
+    const height = calculateCurrentHeight();
     
-    allStackElements.forEach(img => {
-        if (img.classList.contains('separator-image')) {
-            totalHeight += 25; // Fixed height for separators
-        } else {
-            // For regular images, calculate height based on aspect ratio and width
-            if (img.naturalWidth && img.naturalHeight) {
-                const aspectRatio = img.naturalWidth / img.naturalHeight;
-                totalHeight += Math.round(specifiedWidth / aspectRatio);
+    // Now display the calculated height
+    console.log(`showTotalHeight calculated: ${height}px`);
+    
+    // If no height, show zero
+    if (height === 0) {
+        displayToast('Height: 0px');
+    } else {
+        displayToast(`Height: ${height}px`);
+    }
+}
+
+// Previous height value to track changes
+let previousHeight = 0;
+
+// Flag to prevent animation conflicts when toggling separators
+let animationInProgress = false;
+
+// Helper function to display toast with animated text
+function displayToast(text) {
+    const sizeToast = document.getElementById('size-toast');
+    const currentHeightMatch = text.match(/Height: (\d+)px/);
+    
+    if (currentHeightMatch) {
+        const currentHeight = parseInt(currentHeightMatch[1], 10);
+        
+        // If height has changed, add animation
+        if (currentHeight !== previousHeight) {
+            // Store old height for animation
+            const oldHeight = previousHeight;
+            previousHeight = currentHeight;
+            
+            // Animate any height change except initialization from zero
+            if (oldHeight > 0 || currentHeight > 0) {
+                // Create animation for any change, not just increases
+                animateHeightChange(oldHeight, currentHeight, sizeToast);
             } else {
-                // If naturalWidth/Height not available, use offsetHeight
-                totalHeight += img.offsetHeight;
+                // For initial zero state just set the text
+                sizeToast.textContent = text;
             }
         }
-    });
+    } else {
+        // If not a height value, just set the text directly
+        sizeToast.textContent = text;
+    }
+}
+
+// Animate the height change with counting effect
+function animateHeightChange(from, to, element) {
+    // Set flag to prevent overlapping animations
+    if (animationInProgress) {
+        // If already animating, just update the text immediately
+        element.textContent = `Height: ${to}px`;
+        return;
+    }
     
-    // Show the toast notification with the total height
-    const sizeToast = document.getElementById('size-toast');
-    sizeToast.textContent = `${totalHeight}px`;
-    sizeToast.classList.add('visible');
+    animationInProgress = true;
     
-    // Hide the toast after 2 seconds
+    console.log(`Animating from ${from}px to ${to}px`);
+    
+    // Add animation class for visual effect
+    element.classList.add('animating');
+    
+    // Add decreasing class if height is going down (e.g., removing images or separators)
+    if (to < from) {
+        element.classList.add('decreasing');
+    } else {
+        element.classList.remove('decreasing');
+    }
+    
+    // Remove animation classes after animation completes
     setTimeout(() => {
-        sizeToast.classList.remove('visible');
-    }, 2000);
+        element.classList.remove('animating');
+        element.classList.remove('decreasing');
+        animationInProgress = false;
+    }, 1000);
+    
+    // Calculate animation duration based on the difference
+    const diff = Math.abs(to - from); // Use absolute difference
+    const duration = Math.min(1000, Math.max(500, diff * 5)); // between 500ms and 1000ms
+    const startTime = performance.now();
+    
+    // Animation function
+    function animate(currentTime) {
+        const elapsedTime = currentTime - startTime;
+        const progress = Math.min(elapsedTime / duration, 1);
+        
+        // Easing function for smooth counting
+        const easing = t => t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1; // cubic easing
+        const easedProgress = easing(progress);
+        
+        // Calculate current value
+        const currentValue = Math.floor(from + diff * easedProgress);
+        
+        // Update element text
+        element.textContent = `Height: ${currentValue}px`;
+        
+        // Continue animation if not complete
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+    
+    // Start animation
+    requestAnimationFrame(animate);
 }
 
 function exportImagesAsFile() {
@@ -490,6 +691,8 @@ function exportImagesAsFile() {
 
     // Get the specified width from the slider (the width the user is seeing in the UI)
     const specifiedWidth = parseInt(widthSlider.value, 10);
+    
+    console.log("EXPORT: Using width value for export:", specifiedWidth);
     
     // Calculate total height and draw all elements based on the specified width
     let totalHeight = 0;
@@ -556,6 +759,8 @@ function exportImagesAsFile() {
         canvas.width = specifiedWidth;
         canvas.height = totalHeight;
         
+        console.log(`EXPORT: Canvas dimensions set to ${canvas.width} x ${canvas.height}`);
+        
         // Set high quality rendering
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
@@ -586,8 +791,22 @@ function exportImagesAsFile() {
         }
         
         // Export with maximum quality
+        // Create a verification URL to confirm final image dimensions
+        const imageDataURL = canvas.toDataURL('image/png', 1.0);
+        
+        // Verify dimensions by creating a temporary image
+        const verifyImg = new Image();
+        verifyImg.onload = () => {
+            console.log(`EXPORT: Verification - Final image dimensions: ${verifyImg.width} x ${verifyImg.height}`);
+        };
+        verifyImg.src = imageDataURL;
+        
+        // Continue with export
         canvas.toBlob(blob => {
             const url = URL.createObjectURL(blob);
+            // Verify blob size
+            console.log(`EXPORT: Blob size: ${blob.size} bytes`);
+            
             const a = document.createElement('a');
             a.href = url;
             a.download = 'stacked-images.png';
@@ -641,4 +860,16 @@ window.resetAll = function() {
 
     // Update UI states (mostly for the export button)
     updateExportButtonVisibility();
+    
+    // Update the size toast to show 0px with animation
+    // Force previous height to something so animation will run
+    const oldHeight = previousHeight;
+    previousHeight = 0;
+    
+    // Directly show animation from old height to 0
+    if (oldHeight > 0) {
+        animateHeightChange(oldHeight, 0, document.getElementById('size-toast'));
+    } else {
+        displayToast('Height: 0px');
+    }
 };
