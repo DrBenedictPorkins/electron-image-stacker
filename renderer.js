@@ -1,14 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('drop_zone');
     const imageStack = document.getElementById('image_stack');
-    const presetWidthInput = document.getElementById('presetWidth');
+    const widthSlider = document.getElementById('widthSlider');
+    const widthDisplay = document.getElementById('widthDisplay');
     const useSeparatorCheckbox = document.getElementById('useSeparator');
     let firstImageWidth = null;
     let selectedImage = null;
     let separatorImages = [];  // Track separator images
+    let resizeTimeout = null;  // For debouncing slider updates
 
     const defaultWidth = 500;
-    presetWidthInput.value = defaultWidth;
+    widthSlider.value = defaultWidth;
+    widthDisplay.textContent = defaultWidth;
 
     // Create a live separator image for preview
     function createLiveSeparator(width) {
@@ -45,36 +48,62 @@ document.addEventListener('DOMContentLoaded', () => {
         
         addNoise();
         
-        // Draw tribal-like patterns across the separator
+        // Calculate center area for text that we'll keep clear
+        const textWidth = separatorCanvas.width * 0.6; // 60% of width for text
+        const textHeight = 20; // Height of text area
+        const textLeft = (separatorCanvas.width - textWidth) / 2;
+        const textRight = textLeft + textWidth;
+        const textTop = (separatorCanvas.height - textHeight) / 2;
+        const textBottom = textTop + textHeight;
+        
+        // Draw tribal-like patterns across the separator (avoiding text area)
         ctx.strokeStyle = '#f9cb9c'; // Light orange for contrast
         ctx.lineWidth = 1.5;
         ctx.lineCap = 'round';
         
         // Draw abstract patterns
         for (let x = 0; x < separatorCanvas.width; x += 50) {
-            // Zigzag pattern
-            ctx.beginPath();
+            // Zigzag pattern - avoid the center text area
             const startX = x + Math.random() * 30;
-            ctx.moveTo(startX, 5);
             
-            for (let i = 0; i < 3; i++) {
-                const nextX = startX + 15 + Math.random() * 10;
-                const nextY = i % 2 === 0 ? 20 : 5;
-                ctx.lineTo(nextX, nextY);
+            // Only draw patterns if they're not in the text area
+            const isInTextAreaX = (startX > textLeft - 30 && startX < textRight + 30);
+            
+            if (!isInTextAreaX) {
+                ctx.beginPath();
+                ctx.moveTo(startX, 5);
+                
+                for (let i = 0; i < 3; i++) {
+                    const nextX = startX + 15 + Math.random() * 10;
+                    const nextY = i % 2 === 0 ? 20 : 5;
+                    ctx.lineTo(nextX, nextY);
+                }
+                
+                ctx.stroke();
+                
+                // Add small circles/dots (like flowers or tribal markings)
+                const circleX = x + 25 + Math.random() * 20;
+                const circleY = 7 + Math.random() * 11;
+                const radius = 1 + Math.random() * 2;
+                
+                ctx.beginPath();
+                ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f9cb9c';
+                ctx.fill();
             }
-            
-            ctx.stroke();
-            
-            // Add small circles/dots (like flowers or tribal markings)
-            const circleX = x + 25 + Math.random() * 20;
-            const circleY = 7 + Math.random() * 11;
-            const radius = 1 + Math.random() * 2;
-            
-            ctx.beginPath();
-            ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#f9cb9c';
-            ctx.fill();
         }
+        
+        // Create background for text
+        const textBgGradient = ctx.createLinearGradient(
+            textLeft, separatorCanvas.height/2, 
+            textRight, separatorCanvas.height/2
+        );
+        textBgGradient.addColorStop(0, 'rgba(141, 44, 20, 0.8)');  // Same as background but with alpha
+        textBgGradient.addColorStop(0.5, 'rgba(141, 44, 20, 0.9)'); // Darker in center
+        textBgGradient.addColorStop(1, 'rgba(141, 44, 20, 0.8)');
+        
+        ctx.fillStyle = textBgGradient;
+        ctx.fillRect(textLeft, textTop - 3, textWidth, textHeight + 6);
         
         // Add "A Few Moments Later" text with shadow for better visibility
         ctx.font = 'bold 16px Arial';
@@ -82,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.textBaseline = 'middle';
         
         // Text shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillText('A Few Moments Later...', separatorCanvas.width / 2 + 1, separatorCanvas.height / 2 + 1);
         
         // Actual text
@@ -100,7 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Function to update separators based on checkbox state
-    function updateSeparators() {
+    // forceRecreate: if true, will recreate all separators even if they already exist
+    function updateSeparators(forceRecreate = false) {
         const useSeparators = useSeparatorCheckbox.checked;
         const images = Array.from(imageStack.querySelectorAll('img:not(.separator-image)'));
         
@@ -117,11 +147,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Get current width for separators
-        const currentWidth = firstImageWidth || parseInt(presetWidthInput.value, 10) || defaultWidth;
+        // Get current width for separators - always use the exact current width
+        const currentWidth = firstImageWidth || parseInt(widthSlider.value, 10) || defaultWidth;
         
         // Add separators between images
         for (let i = 0; i < images.length - 1; i++) {
+            // Always generate a fresh separator at the current width
             const separator = createLiveSeparator(currentWidth);
             separatorImages.push(separator);
             
@@ -157,20 +188,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const img = new Image();
                 img.src = e.target.result;
                 img.onload = () => {
-                    // Set initial width based on preset or use a sensible default
+                    // Set initial width based on slider value
                     if (firstImageWidth === null) {
-                        firstImageWidth = parseInt(presetWidthInput.value, 10);
-                        
-                        // If the image is very wide or very narrow, adjust width to something reasonable
-                        const aspectRatio = img.naturalWidth / img.naturalHeight;
-                        if (aspectRatio > 3) { // Very wide image
-                            firstImageWidth = Math.min(4096, Math.max(firstImageWidth, 800));
-                        } else if (aspectRatio < 0.3) { // Very tall/narrow image
-                            firstImageWidth = Math.min(firstImageWidth, 600);
-                        }
-                        
+                        // Always use exactly what's in the slider to avoid jerky motion later
+                        firstImageWidth = parseInt(widthSlider.value, 10);
                         imageStack.style.width = `${firstImageWidth}px`;
-                        presetWidthInput.value = firstImageWidth;
                     }
                     
                     // Make the image responsive within its container
@@ -180,8 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     img.addEventListener('click', () => selectImage(img));
                     imageStack.appendChild(img);
-                    updateImageStackVisibility();
-                    updateImageStackBorder();
+                    
+                    // Display the image stack container if this is the first image
+                    if (imageStack.style.display === 'none') {
+                        imageStack.style.display = 'flex';
+                        imageStack.style.border = '5px solid #888';
+                    }
+                    
                     updateSeparators(); // Update separators after adding a new image
                     scrollToBottom();
                     updateExportButtonVisibility();
@@ -191,13 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function updateImageStackVisibility() {
-        imageStack.style.display = imageStack.children.length > 0 ? 'block' : 'none';
-    }
-
-    function updateImageStackBorder() {
-        imageStack.style.border = imageStack.children.length > 0 ? '5px solid #888' : '5px solid transparent';
-    }
+    // These functions are now handled inline for better control of the initial state
 
     function scrollToBottom() {
         window.scrollTo(0, document.body.scrollHeight);
@@ -237,39 +258,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateSeparators();
             }
             
-            updateImageStackVisibility();
-            updateImageStackBorder();
+            // Hide the image stack if all images are removed
+            if (imageStack.children.length === 0) {
+                imageStack.style.display = 'none';
+                imageStack.style.border = '5px solid transparent';
+            }
+            
             updateExportButtonVisibility();
         }
     });
 
-    window.applyWidth = function() {
-        let width = parseInt(presetWidthInput.value, 10);
-        // Validate the width
-        if (isNaN(width)) {
-            alert("Please enter a valid number");
-            presetWidthInput.value = defaultWidth;
-            return;
-        }
-
-        const minWidth = 300; // Increased minimum for better visibility
-        const maxWidth = 4096; // Increased maximum to support high-resolution images
-
-        if (width < minWidth) {
-            alert(`Width cannot be less than ${minWidth}px for better visibility`);
-            presetWidthInput.value = minWidth;
-            width = minWidth;
-        } else if (width > maxWidth) {
-            alert(`Width cannot exceed ${maxWidth}px for technical limitations`);
-            presetWidthInput.value = maxWidth;
-            width = maxWidth;
-        }
-
+    // Function to handle width changes from the slider
+    function updateWidth(width, instant = false) {
+        // Ensure width is within boundaries (should be handled by slider min/max, but just in case)
+        const minWidth = 300;
+        const maxWidth = 4096;
+        width = Math.min(Math.max(width, minWidth), maxWidth);
+        
+        // Update displayed width value
+        widthDisplay.textContent = width;
+        
+        // Set the first image width if needed
         firstImageWidth = width;
         
-        // Apply width with smooth transition
-        imageStack.style.transition = 'width 0.3s ease-in-out';
-        imageStack.style.width = `${firstImageWidth}px`;
+        // Apply width with smooth transition (unless instant is requested)
+        if (!instant) {
+            imageStack.style.transition = 'width 0.2s ease-out';
+        } else {
+            imageStack.style.transition = 'none';
+        }
+        
+        imageStack.style.width = `${width}px`;
         
         // Reset all images to be responsive within the container
         Array.from(imageStack.children).forEach(img => {
@@ -278,21 +297,39 @@ document.addEventListener('DOMContentLoaded', () => {
             img.style.height = img.classList.contains('separator-image') ? '25px' : 'auto';
         });
         
-        updateImageStackVisibility();
+        // Force recreation of the separator images with the new width
+        updateSeparators(true); // true flag to force recreation
         
-        // Recreate separators with the new width
-        updateSeparators();
+        // Remove transition after width change completes
+        if (!instant) {
+            setTimeout(() => {
+                imageStack.style.transition = 'none';
+            }, 200);
+        }
+    }
+    
+    // Add event listener for the slider with debouncing for smoother experience
+    widthSlider.addEventListener('input', () => {
+        // Update display immediately for responsiveness
+        widthDisplay.textContent = widthSlider.value;
         
-        // Scroll back to where the user was viewing after width change
-        // (helps maintain context when changing width)
-        setTimeout(() => {
-            // Remove transition after width change completes
-            imageStack.style.transition = 'none';
-        }, 300);
-    };
+        // Debounce the actual resizing for better performance
+        if (resizeTimeout) {
+            clearTimeout(resizeTimeout);
+        }
+        
+        resizeTimeout = setTimeout(() => {
+            updateWidth(parseInt(widthSlider.value, 10));
+            resizeTimeout = null;
+        }, 10); // Small delay for smoother performance
+    });
+    
+    // For external access (needed for resetAll function)
+    window.updateWidth = updateWidth;
 
-    // Initial check in case the script loads after images were dynamically added (if applicable)
-    updateImageStackVisibility();
+    // Set initial state - hide the image stack until images are added
+    imageStack.style.display = 'none';
+    imageStack.style.border = '5px solid transparent';
     updateExportButtonVisibility();
 });
 
@@ -313,39 +350,56 @@ function exportImagesAsFile() {
     const ctx = canvas.getContext('2d');
     // Get all elements in image stack (includes both original images and separators)
     const allStackElements = document.querySelectorAll('#image_stack img');
+    const widthSlider = document.getElementById('widthSlider');
 
     if (!allStackElements.length) {
         alert("No images to export.");
         return;
     }
 
-    // Calculate dimensions based on the first image's natural width
-    const firstImage = allStackElements[0];
-    const baseWidth = firstImage.naturalWidth; // Use original width
+    // Get the specified width from the slider (the width the user is seeing in the UI)
+    const specifiedWidth = parseInt(widthSlider.value, 10);
     
-    // Calculate total height and draw all elements
+    // Calculate total height and draw all elements based on the specified width
     let totalHeight = 0;
     
-    // First calculate the total height
+    // First calculate the total height based on the specified width
     allStackElements.forEach(img => {
-        totalHeight += img.naturalHeight * (baseWidth / img.naturalWidth);
+        // For separator images, use their fixed height
+        if (img.classList.contains('separator-image')) {
+            totalHeight += 25; // Fixed height for separators
+        } else {
+            // For regular images, calculate height based on aspect ratio and specified width
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            totalHeight += Math.round(specifiedWidth / aspectRatio);
+        }
     });
     
-    // Set canvas to full resolution dimensions
-    canvas.width = baseWidth;
+    // Set canvas dimensions - use the specified width from the slider
+    canvas.width = specifiedWidth;
     canvas.height = totalHeight;
     
     // Set high quality rendering
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
-    // Draw all elements at full resolution
+    // Draw all elements at the specified width
     let yOffset = 0;
     
     for (const img of allStackElements) {
-        const scaledHeight = img.naturalHeight * (baseWidth / img.naturalWidth);
-        ctx.drawImage(img, 0, yOffset, baseWidth, scaledHeight);
-        yOffset += scaledHeight;
+        if (img.classList.contains('separator-image')) {
+            // Draw separator at specified width with fixed height
+            ctx.drawImage(img, 0, yOffset, specifiedWidth, 25);
+            yOffset += 25;
+        } else {
+            // Calculate height based on aspect ratio and specified width
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            const scaledHeight = Math.round(specifiedWidth / aspectRatio);
+            
+            // Draw image at specified width maintaining aspect ratio
+            ctx.drawImage(img, 0, yOffset, specifiedWidth, scaledHeight);
+            yOffset += scaledHeight;
+        }
     }
     
     // Export with maximum quality
@@ -381,22 +435,26 @@ window.resetAll = function() {
 
     // Reset width to default
     const defaultWidth = 500;
-    const presetWidthInput = document.getElementById('presetWidth');
-    presetWidthInput.value = defaultWidth;
-
-    // Apply the default width
-    imageStack.style.width = `${defaultWidth}px`;
-
+    const widthSlider = document.getElementById('widthSlider');
+    widthSlider.value = defaultWidth;
+    
+    // Reset first image width to null (as if app just started)
+    window.firstImageWidth = null;
+    
+    // Update width display
+    const widthDisplay = document.getElementById('widthDisplay');
+    widthDisplay.textContent = defaultWidth;
+    
+    // Reset image stack styles to initial state
+    imageStack.style.width = ''; // Remove fixed width
+    imageStack.style.display = 'none'; // Hide the container completely
+    imageStack.style.border = '5px solid transparent'; // Reset border to be invisible
+    
     // Reset selection
     if (window.selectedImage) {
         window.selectedImage = null;
     }
 
-    // Reset first image width
-    window.firstImageWidth = null;
-
-    // Update UI states
-    updateImageStackVisibility();
-    updateImageStackBorder();
+    // Update UI states (mostly for the export button)
     updateExportButtonVisibility();
 };

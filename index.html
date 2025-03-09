@@ -8,10 +8,9 @@
 </head>
 <body>
 <div id="controlPanel">
-    <div class="controlGroup">
-        <label for="presetWidth">Width (px):</label>
-        <input type="number" id="presetWidth" value="500" min="100" max="4096">
-        <button onclick="applyWidth()">Apply</button>
+    <div class="controlGroup width-slider-container">
+        <label for="widthSlider">Width: <span id="widthDisplay">500</span>px</label>
+        <input type="range" id="widthSlider" value="500" min="300" max="4096" step="10" class="slider">
     </div>
     <div class="controlGroup">
         <button id="exportButton" onclick="exportImagesAsFile()" disabled>Export as Image</button>

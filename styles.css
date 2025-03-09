@@ -82,13 +82,13 @@ button:hover {
   margin: 20px auto;
   background-color: #ffffff;
   border-radius: 8px;
-  padding: 15px;
+  padding: 0;
+  overflow: hidden; /* Ensure images don't extend beyond container */
   width: 90%;
   max-width: none; /* Remove the visual display width limit */
   min-height: 400px;
   box-shadow: 0 6px 10px rgba(0,0,0,0.2);
   box-sizing: border-box;
-  /* Add bottom padding to ensure last image is fully visible */
   margin-bottom: 140px; /* Increased to ensure good spacing from drop zone and control panel */
   display: flex;
   flex-direction: column;
@@ -112,41 +112,34 @@ img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin-bottom: 8px;
-  margin-top: 8px;
-  border-radius: 4px;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin: 0;
+  padding: 0;
+  border: none;
+  box-sizing: border-box;
+  transition: transform 0.2s;
+  position: relative;
 }
 
 img:hover {
   transform: scale(1.01);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 2; /* Make hovered image appear on top */
 }
 
 img.separator-image {
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  margin: 4px 0;
-  border-radius: 2px;
-  transform-origin: center;
-  position: relative;
-  z-index: 1;
   width: 100%;
   max-width: 100%;
   height: 25px; /* Fixed height for separators */
+  margin: 0;
+  padding: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.selected::after {
-  content: '';
-  position: absolute;
-  top: -2px; /* Slightly expand the area to fit the shadow without moving the image */
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  box-shadow: 0 0 8px 4px #FFA500; /* Bright orange glow */
-  border-radius: 5px; /* Rounded corners for the shadow to match the image */
-  pointer-events: none;
-  box-sizing: border-box;
+img.selected {
+  outline: 3px solid #FFA500; /* Bright orange outline */
+  outline-offset: 0;
+  z-index: 3; /* Place selected image above all others */
+  position: relative;
 }
 
 @media (max-width: 768px) {
@@ -266,4 +259,73 @@ img.separator-image {
   cursor: pointer;
   width: 16px;
   height: 16px;
+}
+
+/* Slider styling */
+.width-slider-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 220px;
+}
+
+.width-slider-container label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: white;
+}
+
+#widthDisplay {
+  color: #ffcc00;
+  font-weight: bold;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  border-radius: 5px;
+  margin: 8px 0;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4CAF50;
+  cursor: pointer;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s;
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4CAF50;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover,
+.slider::-moz-range-thumb:hover {
+  background: #45a049;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+.slider::-webkit-slider-thumb:active,
+.slider::-moz-range-thumb:active {
+  background: #3d8b3d;
+}
+
+/* Adjust control panel spacing for the slider */
+#controlPanel {
+  padding: 15px 25px;
 }
