@@ -2,7 +2,9 @@
 
 A lightweight desktop application for stacking multiple images vertically with SpongeBob-style "A Few Moments Later" separators.
 
-![Electron Image Stacker](https://i.imgur.com/placeholder.png)
+## Demo
+
+![Electron Image Stacker Demo](./assets/demo.gif)
 
 ## Features
 
