@@ -4,7 +4,7 @@
   "description": "Stack images vertically with optional SpongeBob-style separators",
   "keywords": ["electron", "image", "stacker", "utility"],
   "main": "./main.js",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "DrBenedictPOrkins",
   "scripts": {
     "start": "electron ."

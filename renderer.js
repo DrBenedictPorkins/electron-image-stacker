@@ -199,13 +199,38 @@ document.addEventListener('DOMContentLoaded', () => {
                         imageStack.style.width = `${firstImageWidth}px`;
                     }
                     
-                    // Make the image responsive within its container
-                    img.style.width = '100%';
-                    img.style.height = 'auto';
-                    img.style.maxWidth = '100%';
+                    // Create a new pre-sized image that will display correctly immediately
+                    const aspectRatio = img.naturalWidth / img.naturalHeight;
+                    const targetWidth = firstImageWidth;
+                    const targetHeight = Math.round(targetWidth / aspectRatio);
                     
-                    img.addEventListener('click', () => selectImage(img));
-                    imageStack.appendChild(img);
+                    // Create a canvas to resize the image
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Use high quality scaling
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    
+                    // Draw the image at the target size
+                    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                    
+                    // Create a new image with the correctly sized data
+                    const resizedImg = new Image();
+                    
+                    // Setup click handler and styles before setting src to avoid flash of wrong size
+                    resizedImg.style.width = '100%';
+                    resizedImg.style.height = 'auto'; 
+                    resizedImg.style.maxWidth = '100%';
+                    resizedImg.addEventListener('click', () => selectImage(resizedImg));
+                    
+                    // Set the source to the resized image data
+                    resizedImg.src = canvas.toDataURL('image/png');
+                    
+                    // Add to DOM
+                    imageStack.appendChild(resizedImg);
                     
                     // Display the image stack container if this is the first image
                     if (imageStack.style.display === 'none') {
@@ -427,55 +452,108 @@ function exportImagesAsFile() {
     let totalHeight = 0;
     
     // First calculate the total height based on the specified width
-    allStackElements.forEach(img => {
-        // For separator images, use their fixed height
-        if (img.classList.contains('separator-image')) {
-            totalHeight += 25; // Fixed height for separators
-        } else {
-            // For regular images, calculate height based on aspect ratio and specified width
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            totalHeight += Math.round(specifiedWidth / aspectRatio);
-        }
+    // Create an array to track images and their heights for when we draw them
+    const imagesToDraw = [];
+    
+    // Pre-load all images to ensure we have correct dimensions
+    const loadPromises = Array.from(allStackElements).map(img => {
+        return new Promise(resolve => {
+            if (img.complete && img.naturalWidth > 0) {
+                // Image already loaded
+                if (img.classList.contains('separator-image')) {
+                    totalHeight += 25; // Fixed height for separators
+                    imagesToDraw.push({ img, height: 25, isSeparator: true });
+                } else {
+                    // For regular images, calculate height based on aspect ratio
+                    let aspectRatio = img.naturalWidth / img.naturalHeight;
+                    // Safeguard against invalid aspect ratios
+                    if (!aspectRatio || isNaN(aspectRatio) || !isFinite(aspectRatio)) {
+                        aspectRatio = 1; // Fallback to square if we can't determine ratio
+                    }
+                    const height = Math.round(specifiedWidth / aspectRatio);
+                    totalHeight += height;
+                    imagesToDraw.push({ img, height, isSeparator: false });
+                }
+                resolve();
+            } else {
+                // Create a new image to ensure it's fully loaded
+                const imgToLoad = new Image();
+                imgToLoad.onload = () => {
+                    if (img.classList.contains('separator-image')) {
+                        totalHeight += 25; // Fixed height for separators
+                        imagesToDraw.push({ img: imgToLoad, height: 25, isSeparator: true });
+                    } else {
+                        // For regular images, calculate height based on aspect ratio
+                        let aspectRatio = imgToLoad.naturalWidth / imgToLoad.naturalHeight;
+                        // Safeguard against invalid aspect ratios
+                        if (!aspectRatio || isNaN(aspectRatio) || !isFinite(aspectRatio)) {
+                            aspectRatio = 1; // Fallback to square if we can't determine ratio
+                        }
+                        const height = Math.round(specifiedWidth / aspectRatio);
+                        totalHeight += height;
+                        imagesToDraw.push({ img: imgToLoad, height, isSeparator: false });
+                    }
+                    resolve();
+                };
+                imgToLoad.onerror = () => {
+                    // If image fails to load, add a placeholder
+                    const height = 100; // Default height for broken images
+                    totalHeight += height;
+                    imagesToDraw.push({ img, height, isSeparator: false, broken: true });
+                    resolve();
+                };
+                imgToLoad.src = img.src;
+            }
+        });
     });
     
-    // Set canvas dimensions - use the specified width from the slider
-    canvas.width = specifiedWidth;
-    canvas.height = totalHeight;
-    
-    // Set high quality rendering
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    
-    // Draw all elements at the specified width
-    let yOffset = 0;
-    
-    for (const img of allStackElements) {
-        if (img.classList.contains('separator-image')) {
-            // Draw separator at specified width with fixed height
-            ctx.drawImage(img, 0, yOffset, specifiedWidth, 25);
-            yOffset += 25;
-        } else {
-            // Calculate height based on aspect ratio and specified width
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            const scaledHeight = Math.round(specifiedWidth / aspectRatio);
-            
-            // Draw image at specified width maintaining aspect ratio
-            ctx.drawImage(img, 0, yOffset, specifiedWidth, scaledHeight);
-            yOffset += scaledHeight;
+    // Once all images are processed, create the canvas and draw
+    Promise.all(loadPromises).then(() => {
+        // Set canvas dimensions - use the specified width from the slider
+        canvas.width = specifiedWidth;
+        canvas.height = totalHeight;
+        
+        // Set high quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Draw all elements at the specified width
+        let yOffset = 0;
+        
+        // Use the pre-calculated image data to draw each image
+        for (const item of imagesToDraw) {
+            if (item.broken) {
+                // Draw a placeholder for broken images
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, yOffset, specifiedWidth, item.height);
+                ctx.fillStyle = '#888';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Image Error', specifiedWidth/2, yOffset + item.height/2);
+                yOffset += item.height;
+            } else if (item.isSeparator) {
+                // Draw separator at specified width with fixed height
+                ctx.drawImage(item.img, 0, yOffset, specifiedWidth, 25);
+                yOffset += 25;
+            } else {
+                // Draw image at specified width maintaining aspect ratio
+                ctx.drawImage(item.img, 0, yOffset, specifiedWidth, item.height);
+                yOffset += item.height;
+            }
         }
-    }
-    
-    // Export with maximum quality
-    canvas.toBlob(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'stacked-images.png';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, 'image/png', 1.0); // Use maximum quality for PNG
+        
+        // Export with maximum quality
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'stacked-images.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 'image/png', 1.0); // Use maximum quality for PNG
+    });
 }
 
 // Ensure event listeners are correctly set up
